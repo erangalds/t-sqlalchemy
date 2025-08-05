@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  postgres_sqlalchemy:
+    image: postgres:17.5
+    container_name: postgres_sqlalchemy
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: my_sqlalchemy_db
+      POSTGRES_USER: sqlalchemy
+      POSTGRES_PASSWORD: sqlalchemy_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - sqlalchemy
+
+networks:
+  sqlalchemy:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
