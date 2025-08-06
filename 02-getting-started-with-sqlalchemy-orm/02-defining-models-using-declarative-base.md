@@ -172,7 +172,7 @@ The **`setup_orm_database`** function is a utility for creating and managing t
 ---
 
 
-### **Understanding `back_populates`** 🔄
+#### **Understanding `back_populates`** 🔄
 
 `back_populates` in SQLAlchemy ORM allows you to define a **bidirectional relationship** between two models. It ensures that when you modify one side of the relationship, the other side is automatically updated to maintain consistency.
 
@@ -189,7 +189,7 @@ In our code, `back_populates` is used to link the `posts` relationship in th
 
 This bidirectional linking is crucial for **data integrity** and makes working with related objects much more intuitive and less error-prone. It's like having two doors to the same room; opening one automatically affects the other, keeping them in sync.
 
-### **How the Relationship is Defined** 🤝
+#### **How the Relationship is Defined** 🤝
 
 The relationship between `User` and `Post` is a **One-to-Many** relationship, meaning one `User` can have many `Posts`, but each `Post` belongs to only one `User`.
 
@@ -241,6 +241,88 @@ Let's break down how this is established in your code:
         - `all`: This implies `save-update` and `delete` cascade. If you save a `User` object, any new `Post` objects added to `user.posts` will also be saved. If you delete a `User` object, all associated `Post` objects will also be deleted from the database.
             
         - `delete-orphan`: This is specifically for collections. If a `Post` object is removed from the `user.posts` list (i.e., it's "orphaned" from its parent `User` without being assigned to another `User`), it will be deleted from the database.
+
+### SQLite Implementation
+
+```python
+import os
+import datetime 
+from typing import List, Optional
+from sqlalchemy import create_engine, ForeignKey, String, Integer, Boolean, DateTime 
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship 
+
+## Configuration for Database Connection 
+# SQLite uses a file-based database, so we just need a URL pointing to the file.
+# The `///` indicates a file path relative to the current directory.
+DATABASE_URL = "sqlite:///blog.db"
+
+
+# -- Declrative Base Class --
+class Base(DeclarativeBase):
+    """Base class for SQLAlchemy ORM models."""
+    pass 
+
+## -- ORM Models -- 
+class User(Base):
+    """ORM Model for User Table."""
+    __tablename__ = "users" # Mapping to the 'users' table
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(50), nullable=False)
+    email: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.now)
+
+    posts: Mapped[List["Post"]] = relationship(back_populates="author", cascade="all, delete-orphan")
+
+    def __repr__(self) -> str:
+        return f"User(id={self.id!r}, name={self.name!r}, email={self.email!r})"
+    
+
+class Post(Base):
+    """ORM Model for Post Table.""" 
+    __tablename__ = "posts" # Maps this class to the "posts" table
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    content: Mapped[str] = mapped_column(String, nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    published_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.now)
+
+    author: Mapped['User'] = relationship(back_populates='posts')
+
+    def __repr__(self) -> str:
+        return f"Post(id={self.id!r}, title={self.title!r}, user_id={self.user_id!r})"
+    
+
+# Defining a helper funciton to setup the database
+def setup_orm_database(db_url: str):
+    """Setting up ORM Database.""" 
+    print(f"Setting up ORM Database at {db_url}...")
+    engine = create_engine(db_url, echo=True)
+
+    try:
+        # We can drop all tabls if already exists.
+        Base.metadata.drop_all(engine)
+        # Create all table defined in the Base.metadata 
+        Base.metadata.create_all(engine)
+        print(f"Database setup with all tables in {db_url} successfully.")
+    except Exception as e:
+        print(f"Error setting up database: {e}")
+    finally:
+        if engine:
+            engine.dispose()
+
+if __name__ == "__main__":
+    setup_orm_database(DATABASE_URL)
+```
+
+### **Changes Required** 🛠️
+
+1. **Remove PostgreSQL-specific connection parameters.** The variables `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and `DB_PASSWORD` are not needed for SQLite as it operates on a file-based database.
+    
+2. **Update the `DATABASE_URL`.** The new URL will specify the SQLite dialect and the path to the database file. For a file named `blog.db`, the URL will be `"sqlite:///blog.db"`. The three slashes `///` indicate that the database file is located in the current directory. If you wanted the file to be in memory, you'd use `"sqlite:///:memory:"`.
+
 
 
 
