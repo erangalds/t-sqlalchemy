@@ -31,7 +31,8 @@ class User(Base):
     def __repr__(self) -> str:
         return f"User(id={self.id!r}, name={self.name!r}, email={self.email!r})"
     
-
+    
+# Defining a helper funciton to setup the database
 class Post(Base):
     """ORM Model for Post Table.""" 
     __tablename__ = "posts" # Maps this class to the "posts" table

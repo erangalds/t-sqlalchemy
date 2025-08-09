@@ -7,15 +7,9 @@ from sqlalchemy.exc import IntegrityError, NoResultFound, MultipleResultsFound
 from sqlalchemy.sql import select
 
 ## Configuration for Database Connection 
-# Database connection parameters
-DB_HOST = "localhost"
-DB_PORT = "5432"
-DB_NAME = "my_sqlalchemy_db"
-DB_USER = "sqlalchemy"
-DB_PASSWORD = "sqlalchemy_password"
-
-# Create connection string (using psycopg3)
-DATABASE_URL = f"postgresql+psycopg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+# Create a file-based SQLite database connection string.
+# The database will be created in the same directory as the script.
+DATABASE_URL = "sqlite:///my_database.db"
 
 # Defining the Declarative Base Class
 class Base(DeclarativeBase):
@@ -56,12 +50,12 @@ class Post(Base):
         return f"Post(id={self.id!r}, title={self.title!r}, user_id={self.user_id!r})"    
     
 # Helper function to setup and get Session Factory
-def get_session_factory(db_url: str, db_name: str, echo: bool = True) -> sessionmaker:
+def get_session_factory(db_url: str, echo: bool = True) -> sessionmaker:
     """Create a session factory for the database."""
-    print(f'Setting up the ORM for database: {db_name}')
+    print(f'Setting up the ORM for database: {db_url}')
     # Create the database engine
     engine = create_engine(db_url, echo=echo)
-    # Delete the current tables if they exists
+    # Drop the tables in the database
     Base.metadata.drop_all(engine)
     # Create the tabale in the database
     Base.metadata.create_all(engine)
@@ -251,11 +245,6 @@ def perform_orm_crud_operations(Session: sessionmaker):
 # Main Execution Block
 if __name__ == "__main__":
     # Get Session
-    session_factory = get_session_factory(DATABASE_URL, DB_NAME, echo=False)
+    session_factory = get_session_factory(DATABASE_URL, echo=False)
     # Perform CRUD Operations
-    perform_orm_crud_operations(session_factory) 
-    
-
-
-
-
+    perform_orm_crud_operations(session_factory)

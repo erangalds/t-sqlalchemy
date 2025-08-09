@@ -275,3 +275,4 @@ The core strength of SQLAlchemy's Core is what **doesn't change**.
 - **`metadata.create_all()`**: This function continues to be the primary method for generating and executing the `CREATE TABLE` statements.
     
 This demonstrates how a good ORM library like SQLAlchemy allows us the developers to write highly portable database code. We can define our schema once and, with a simple change to the connection string, deploy it on a completely different database backend.
+

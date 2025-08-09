@@ -1,3 +1,48 @@
+# ORM Sessions
+
+The `Session` object is the central component for interacting with the databasae when using SQLAlchemy ORM. It's a key abstraction that manages the lifecycle of your ORM objects and database transactions. 
+
+## Understanding the `Session` Object and its role in ORM:
+
++ **Unit of Work**: The `Session` maintains a *Unit of Work*, which is a collection of objects that we have loaded, created, modified, or marked for deletion. It tracks changes to these objects. 
+
++ **Transaction Management**: Each `Session` operates within a database transaction. Changes are not commited to the database until `session.commit()` is called. If an error occurs, `session.rollback()` can revert all changes in that transaction. 
+
++ **Object Identity Map**: The `Session` maintains an identity map, ensuring that for a given primary key, only one python object instance exists within that session. This prevents inconsistencies when fetching the same data multiple times. 
+
++ **Lady Loading**: By default, relationshiphs are "lazy loaded". When you access a related object (e.g. `user.posts`), SQLAlchemy will issue a separate query to load that data only when it's accessed. 
+
+### `sessionmaker()`: 
+
+`sessionmaker()` is a factory function that creates a `Session` class. You configure this `Session` class with an `Engine`. Each call to the created `Session` class will then return a new, independent `Session` object. 
+
+### Key `Session` methods:
+
++ `session.add()`: Adds a new, transient object (an object not yet associated with a session or database now) to the session. 
+
++ `session.add_all()`: Adds a list of objects to the session. 
+
++ `session.commit()`: Commits the current transaction, flushing all pending changes (inserts, updates, deletes) from the session to the database and then commiting the transaction. 
+
++ `session.rollback()`: Rolls back the current transaction, discarding all uncommitted changes in the session and reverting the database to its state before the transaction began. 
+
++ **`session.refresh()`**: Reloads the state of an object from the database, discarding any changes made in the session. Useful for refreshing an object after another session might have updated it.
+
++ **`session.expunge()`**: Detaches an object from the session. The object becomes "detached" and can no longer participate in the session's unit of work.
+
++  **`session.close()`**: Closes the session, releasing its database connection. It's crucial to close sessions to return connections to the pool. Using a context manager (`with Session() as session:`) is the recommended way to ensure sessions are always closed.
+
+## Unit of Work Patter: 
+
+The `Session` encapsulates the Unit of Work pattern. Instead of executing an `INSERT`statement for every `session.add()` call immediately, the `Session` tracks all changes (objects added, modified, or deleted). When `session.commit()` is called, SQLAlchemy intelligently groups these changes, flushes them to the database in the correct order (e.g., inserting parent records before child records), and then commits the database transaction. This makes operations more efficient and ensures data integrity. 
+
+Now let me show you how this works using a simple example. 
+
+## Code Break Down - 
+
+### Postgres Implementation
+
+```python
 import os
 import datetime 
 from typing import List, Optional
@@ -255,7 +300,105 @@ if __name__ == "__main__":
     # Perform CRUD Operations
     perform_orm_crud_operations(session_factory) 
     
+```
+---
 
+#### 1. Database Configuration and Connection
 
+The script begins by setting up the database connection parameters for a **PostgreSQL database**. It defines constants for the host, port, name, user, and password. These are then used to construct a `DATABASE_URL` string in the standard format `postgresql+psycopg://user:password@host:port/database`. The `psycopg` part indicates that the `psycopg` driver (version 3) will be used to connect to the PostgreSQL database.
 
+#### 2. ORM Model Definition
+
+This section defines the database schema using **SQLAlchemy's ORM** (Object-Relational Mapping).
+
+- **`Base` Class:** A `DeclarativeBase` class is created, which serves as the foundation for all the ORM models. All model classes must inherit from this `Base` class.
+    
+- **`User` Model:** This class maps to a `users` table.
+    
+    - It defines columns like `id`, `name`, `email`, `is_active`, and `created_at`.
+        
+    - `Mapped[]` and `mapped_column()` are used to define the column types and properties.
+        
+    - `primary_key=True`, `autoincrement=True`, and `unique=True` are used to set constraints.
+        
+    - The `posts` attribute is a `relationship` that links a user to their posts. The `back_populates` argument ensures a bidirectional relationship, and `cascade='all, delete-orphan'` means that if a user is deleted, all of their associated posts will also be deleted.
+        
+- **`Post` Model:** This class maps to a `posts` table.
+    
+    - It includes columns for `id`, `title`, `content`, and `published_at`.
+        
+    - The `user_id` column is defined as a `ForeignKey`, linking each post to a user in the `users` table.
+        
+    - The `author` attribute is a `relationship` that links each post back to its `User` object.
+        
+
+---
+
+#### 3. Session and CRUD Operations
+
+- **`get_session_factory` Function:** This helper function sets up the database **engine** and **session factory**.
+    
+    - It creates the `engine` which manages the database connection pool.
+        
+    - `Base.metadata.drop_all(engine)` and `Base.metadata.create_all(engine)` are called to drop all existing tables and then create new ones based on the defined models (`User` and `Post`). This is useful for testing or a clean setup.
+        
+    - Finally, it returns a `sessionmaker` object, which is a factory for creating new `Session` objects.
+        
+- **`perform_orm_crud_operations` Function:** This is the core of the script, where all the database interactions happen. It uses a `with Session() as session:` block to ensure proper session management and automatically commit or rollback transactions.
+    
+
+**Create**
+
+- New `User` and `Post` objects are instantiated.
+    
+- `session.add_all()` is used to stage multiple objects for insertion.
+    
+- `session.commit()` persists the changes to the database.
+    
+
+**Read**
+
+- `session.execute(select(Model))` is used to construct and execute queries.
+    
+- `scalars().all()` retrieves all the results as a list of ORM objects.
+    
+- `scalar_one()` is used to retrieve a single object, raising an exception if no or multiple results are found.
+    
+- The code demonstrates querying for all users, a specific user by name, active users, and posts by a specific user.
+    
+- It also shows how to access related objects through the `relationship` attribute (e.g., `user.posts`), which uses **lazy loading** to fetch related data only when it's accessed.
+    
+
+**Update**
+
+- An object is first retrieved from the database.
+    
+- Its attributes are then directly modified (e.g., `bob.name = "Robert"`).
+    
+- `session.add(bob)` is called to mark the object as modified (though SQLAlchemy often detects this automatically).
+    
+- `session.commit()` saves the changes to the database.
+    
+
+**Delete**
+
+- An object to be deleted is retrieved from the database.
+    
+- `session.delete()` marks the object for deletion.
+    
+- `session.commit()` executes the deletion.
+    
+- Because of the `cascade='all, delete-orphan'` setting on the `User` model's `posts` relationship, when a `User`is deleted, their associated `Post` objects are also automatically deleted.
+
+### SQLite Implemetation 
+
+```python
+
+```
+
+#### Database Connection and Setup
+
+- **PostgreSQL Script:** Uses a detailed connection string with specific parameters like `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and `DB_PASSWORD`. The connection string format `postgresql+psycopg://...` specifies the database type and the driver to use. It also includes a `Base.metadata.drop_all(engine)` call to clear the database tables before recreating them.
+    
+- **SQLite Script:** Uses a much simpler connection string: `sqlite:///my_database.db`. This is creates a SQLite database instance persisted to a file named `my_database.db`, within the same directory. The reamining parts are exactly the same. This also uses `Base.metadata.drop_all(engine)` to clear the database and `Base.metadata.create_all(engine)` to create all the tables. 
 
