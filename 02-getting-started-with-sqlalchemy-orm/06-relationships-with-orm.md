@@ -424,7 +424,7 @@ Sure, let's break down the different versions of eager loading in SQLAlchemy, a 
 
 ### 1. `joinedload`
 
-`joinedload` fetches all related data in a single SQL query by performing an `OUTER JOIN` on the related tables.2
+`joinedload` fetches all related data in a single SQL query by performing an `OUTER JOIN` on the related tables.
 
 How it works:
 
@@ -440,9 +440,9 @@ This generates a single query: SELECT users.*, posts.* FROM users LEFT OUTER JOI
 
 - When you have a **small number of related objects** per parent object.
     
-- When you need to **filter or order on the related table**.3
+- When you need to **filter or order on the related table**.
     
-- It's particularly good for **one-to-one** and **many-to-one** relationships.4
+- It's particularly good for **one-to-one** and **many-to-one** relationships.
     
 - It's useful for simple, shallow relationships.
     
